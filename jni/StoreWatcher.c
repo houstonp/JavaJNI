@@ -17,6 +17,15 @@ void processEntryColor(JNIEnv* pEnv, StoreWatcher* pWatcher, StoreEntry* pEntry)
  * because as the UI thread is a Java thread, we have total access to the application class
  * loader. But if we were trying to cache them inside the native thread, the latter would have
  * access only to the system class loader and nothing else.
+ *
+ * To get a field value, one needs to get its containing class description and its field descriptor
+ * before actually retrieving its value. To call a method, one needs to retrieve class descriptor
+ * and method descriptor before calling the method with the necessary parameters. The process is
+ * always the same.
+ *
+ * Caching is the only solution to communicate with native threads, which do not have access to
+ * the application class loader. Instead of caching classes, methods, and fields, simply cache the
+ * application class loader itself.
  */
 
 void startWatcher(JNIEnv* pEnv, StoreWatcher* pWatcher, Store* pStore, jobject pStoreFront) {
@@ -183,8 +192,52 @@ ERROR:
  */
 
 void processEntry(JNIEnv* pEnv, StoreWatcher* pWatcher, StoreEntry* pEntry) {
-	if ((pEntry->mType == StoreType_Integer) && (strcmp(pEntry->mKey, "watcherCounter") == 0)) {
+	switch(pEntry->mType) {
+	case StoreType_Integer:
+		processEntryInt(pEnv, pWatcher, pEntry);
+		break;
+	case StoreType_String:
+		processEntryString(pEnv, pWatcher, pEntry);
+		break;
+	case StoreType_Color:
+		processEntryColor(pEnv, pWatcher, pEntry);
+		break;
+	}
+}
+
+void processEntryInt(JNIEnv* pEnv, StoreWatcher* pWatcher, StoreEntry* pEntry) {
+	if(strcmp(pEntry->mKey, "watcherCounter") == 0) {
 		++pEntry->mValue.mInteger;
+	} else if ((pEntry->mValue.mInteger > 1000) || (pEntry->mValue.mInteger < -1000)) {
+		(*pEnv)->CallVoidMethod(pEnv, pWatcher->mStoreFront, pWatcher->MethodOnAlertInt, (jint) pEntry->mValue.mInteger);
+	}
+}
+
+/*
+ * Strings require allocating a new Java string. We do not need to generate a global reference as it is
+ * used immediately in the Java callback. We can release the local reference right after it is used. In
+ * a classic JNI method, local references are deleted when method returns, here we are in an attached
+ * native thread. Thus, local references would get deleted only when thread is detached (that is, when
+ * activity leaves). JNI memory would leak meanwhile
+ */
+
+void processEntryString(JNIEnv* pEnv, StoreWatcher* pWatcher, StoreEntry* pEntry) {
+	if(strcmp(pEntry->mValue.mString, "apple")) {
+		jstring lValue = (*pEnv)->NewStringUTF(pEnv, pENtry->mValue.mString);
+		(*pEnv)->CallVoidMethod(pEnv, pWatcher->mStoreFront, pWatcher->MethodOnAlertString, lValue);
+		(*pEnv)->DeleteLocalRef(pEnv, lValue);
+	}
+}
+
+/*
+ * Check if a color is identical to the reference color, invoke the equality method provided by Java
+ * and reimplemented in our Color class.
+ */
+
+void processEntryColor(JNIEnv* pEnv, StoreWatcher* pWatcher, StoreEntry* pEntry) {
+	jboolean lResult = (*pEnv)->CallBooleanMethod(pEnv, pWatcher->mColor, pWatcher->MethodColorEquals, pEntry->mValue.mColor);
+	if(lResult) {
+		(*pEnv)->CallVoidMethod(pEnv, pWatcher->mStoreFront, pWatcher->MethodOnAlertColor, pEntry->mValue.mColor);
 	}
 }
 
@@ -211,5 +264,8 @@ void deleteGlobalRef(JNIEnv* pEnv, jobject* pRef) {
 		 pthread_join(pWatcher->mThread, NULL);
 
 		 deleteGlobalRef(pEnv, &pWatcher->mStoreFront);
+		 deleteGlobalRef(pEnv, &pWatcher->mColor);
+		 deleteGlobalRef(pEnv, &pWatcher->ClassStore);
+		 deleteGlobalRef(pEnv, &pWatcher->ClassColor);
 	 }
  }
