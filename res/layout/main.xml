@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <TextView
+        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:text="Save or retrieve a value from the store:"/>
+    <TableLayout
+        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:stretchColumns="1">
+        <TableRow>
+            <TextView
+                android:id="@+id/uiKeyLabel"
+                android:text="Key : "/>
+            <EditText
+                android:id="@+id/uiKeyEdit">
+                <requestFocus></requestFocus>
+            </EditText>
+        </TableRow>
+        <TableRow>
+            <TextView
+                android:id="@+id/uiValueLabel"
+                android:text="Value : "/>
+            <EditText
+                android:id="@+id/uiValueEdit"/>
+        </TableRow>
+        <TableRow>
+            <TextView
+                android:id="@+id/uiTypeLabel"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:text="Type : "/>
+            <Spinner
+                android:id="@+id/uiTypeSpinner"/>
+        </TableRow>
+    </TableLayout>
+    <LinearLayout
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        android:layout_gravity="right">
+        <Button
+            android:id="@+id/uiGetValueButton"
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:text="Get Value"/>
+        <Button
+            android:id="@+id/uiSetValueButton"
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:text="Set Value"/>
+    </LinearLayout>
+</LinearLayout>
